@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urna Eletrônica - Escola Deputado Gregório Bezerra</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js para Exportação de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,700;1,400&display=swap');
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background-color: #121824;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+        }
+
+        /* Efeitos 3D para o Teclado da Urna */
+        .btn-tecla {
+            background: linear-gradient(180deg, #2a2d32 0%, #1a1c1e 100%);
+            box-shadow: 0px 4px 0px #0d0e0f, 0px 5px 10px rgba(0,0,0,0.5);
+            transition: all 0.05s ease;
+        }
+        .btn-tecla:active {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px #0d0e0f, 0px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .btn-branco {
+            background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
+            box-shadow: 0px 4px 0px #a0a0a0, 0px 5px 10px rgba(0,0,0,0.3);
+            color: #000;
+        }
+        .btn-branco:active {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px #a0a0a0;
+        }
+
+        .btn-corrige {
+            background: linear-gradient(180deg, #ff6b00 0%, #d45100 100%);
+            box-shadow: 0px 4px 0px #8f3700, 0px 5px 10px rgba(0,0,0,0.3);
+            color: #fff;
+        }
+        .btn-corrige:active {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px #8f3700;
+        }
+
+        .btn-confirma {
+            background: linear-gradient(180deg, #00a843 0%, #007a30 100%);
+            box-shadow: 0px 4px 0px #004d1e, 0px 5px 10px rgba(0,0,0,0.3);
+            color: #fff;
+        }
+        .btn-confirma:active {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px #004d1e;
+        }
+
+        /* Caixas de Números piscando */
+        .digit-box {
+            border: 2px solid #000;
+            width: 45px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            background-color: #fff;
+        }
+
+        .digit-box.active {
+            border-color: #00a843;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { border-color: #00a843; }
+            50% { border-color: #ccc; }
+        }
+
+        /* Moldura de Tela da Urna */
+        .screen-container {
+            background-color: #eee8d5;
+            border: 2px solid #b5b1a3;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.15);
+        }
+
+        /* Classe Especial para Modo Expansivo dentro do Google Sites (iFrame) */
+        .pseudo-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            z-index: 999999 !important;
+            background-color: #121824 !important;
+            padding: 1rem !important;
+            padding-top: 4rem !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            border: none !important;
+            overflow-y: auto !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Botão Flutuante de Tela Cheia no topo fixo */
+        .fs-floating-btn {
+            position: fixed !important;
+            top: 0.75rem !important;
+            right: 0.75rem !important;
+            z-index: 1000000 !important;
+            background-color: #0f172a !important;
+            border: 2px solid #eab308 !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8) !important;
+        }
+    </style>
+</head>
+<body id="app-body" class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 text-slate-800">
+
+    <!-- Top Barra de Ações Rápidas -->
+    <div id="top-bar" class="w-full max-w-5xl flex justify-between items-center mb-3 px-2 text-white">
+        <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-graduation-cap text-yellow-400 text-2xl"></i>
+            <div>
+                <h1 class="font-bold text-sm sm:text-base leading-tight">EE Deputado Gregório Bezerra</h1>
+                <p class="text-xs text-slate-400">Eleição do Grêmio Estudantil</p>
+            </div>
+        </div>
+        <div class="flex space-x-2">
+            <button id="btn-fullscreen" onclick="toggleFullScreen()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-600 flex items-center gap-1.5 transition text-yellow-400 font-semibold shadow-lg">
+                <i id="fs-icon" class="fa-solid fa-expand"></i> <span id="fs-text" class="hidden sm:inline">Tela Cheia</span>
+            </button>
+            <button onclick="openAdminModal()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-600 flex items-center gap-1 text-yellow-400 font-bold shadow-lg">
+                <i class="fa-solid fa-gear"></i> Painel Admin
+            </button>
+        </div>
+    </div>
+
+    <!-- CORPO DA URNA -->
+    <div id="urna-container" class="bg-slate-300 p-3 sm:p-6 rounded-2xl shadow-2xl border-4 border-slate-400 w-full max-w-5xl flex flex-col lg:flex-row gap-4 sm:gap-6">
+
+        <!-- TELA DA URNA (ESQUERDA) -->
+        <div class="screen-container flex-1 rounded-xl p-3 sm:p-6 flex flex-col justify-between min-h-[380px] sm:min-h-[420px] relative overflow-hidden">
+            
+            <!-- Conteúdo Normal de Votação -->
+            <div id="screen-voting" class="h-full flex flex-col justify-between">
+                <div>
+                    <!-- Cabeçalho da Tela -->
+                    <div class="border-b-2 border-slate-400 pb-2 mb-3">
+                        <h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700">Eleições do Grêmio Estudantil</h2>
+                        <p class="text-xs text-slate-600 font-semibold">ESCOLA DEPUTADO GREGÓRIO BEZERRA</p>
+                    </div>
+
+                    <!-- Indicação de Voto -->
+                    <div class="mt-2">
+                        <p class="text-xs font-bold text-slate-600 uppercase">SEU VOTO VAI PARA</p>
+                        <h3 class="text-base sm:text-xl font-extrabold text-slate-900 uppercase tracking-wide mt-1">CHAPA PRESIDENCIAL</h3>
+                    </div>
+
+                    <!-- Campos dos Dígitos -->
+                    <div class="flex items-center gap-2 my-4 sm:my-6">
+                        <span class="text-xs sm:text-sm font-bold text-slate-700">Número:</span>
+                        <div id="digits-container" class="flex gap-2">
+                            <!-- Inserido dinamicamente via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Info do Candidato Exibida após digitar o número -->
+                    <div id="candidate-info" class="hidden mt-2 sm:mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center bg-amber-50/60 p-3 rounded-lg border border-amber-200 shadow-sm">
+                        <div class="col-span-2 space-y-1">
+                            <p class="text-[11px] text-slate-500 font-bold uppercase">Candidato(a):</p>
+                            <p id="cand-name" class="text-sm sm:text-lg font-bold text-slate-900 uppercase">--</p>
+                            
+                            <p class="text-[11px] text-slate-500 font-bold uppercase mt-1">Chapa:</p>
+                            <p id="cand-chapa" class="text-xs sm:text-base font-semibold text-slate-800 uppercase">--</p>
+                        </div>
+                        <div class="flex justify-center sm:justify-end">
+                            <div id="cand-photo-container" class="w-20 sm:w-24 h-24 sm:h-28 border-2 border-slate-400 bg-slate-200 flex items-center justify-center overflow-hidden rounded shadow-sm">
+                                <img id="cand-photo" src="" class="w-full h-full object-cover hidden" alt="Foto Candidato">
+                                <span id="cand-emoji" class="text-4xl">👤</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mensagens de Alerta (Branco / Nulo) -->
+                    <div id="msg-branco" class="hidden mt-8 text-center">
+                        <h2 class="text-2xl font-black text-slate-800 tracking-wider">VOTO EM BRANCO</h2>
+                    </div>
+
+                    <div id="msg-nulo" class="hidden mt-6 bg-red-100 p-3 rounded border border-red-300 text-center">
+                        <p class="text-xs text-red-600 font-bold">NÚMERO ERRADO / NÃO CADASTRADO</p>
+                        <h2 class="text-xl font-black text-red-700 tracking-wider mt-1">VOTO NULO</h2>
+                    </div>
+                </div>
+
+                <!-- Rodapé da Tela com instruções -->
+                <div class="border-t-2 border-slate-400 pt-2 mt-4 text-[11px] sm:text-xs text-slate-700 leading-tight">
+                    <p class="font-bold">Aperte a tecla:</p>
+                    <p><span class="font-bold text-green-700">CONFIRMA</span> para CONFIRMAR este voto</p>
+                    <p><span class="font-bold text-orange-600">CORRIGE</span> para REINICIAR este voto</p>
+                </div>
+            </div>
+
+            <!-- Tela de BLOQUEIO (Mesa receptora precisa autorizar próximo voto) -->
+            <div id="screen-blocked" class="hidden absolute inset-0 bg-slate-900 text-white flex flex-col items-center justify-center text-center p-6 z-20">
+                <div class="w-14 h-14 sm:w-16 sm:h-16 bg-yellow-500/10 text-yellow-400 rounded-full flex items-center justify-center text-2xl sm:text-3xl mb-2 border border-yellow-500/30">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold tracking-wide text-yellow-400 uppercase">Urna Bloqueada</h2>
+                <p class="text-xs text-slate-300 mt-1 max-w-xs">Aguardando autorização da mesa para o próximo eleitor.</p>
+                
+                <form onsubmit="unlockUrna(event)" class="mt-4 w-full max-w-xs space-y-3">
+                    <div>
+                        <input type="password" id="input-unlock-pin" placeholder="Senha da Mesa" maxlength="8" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 sm:py-2.5 text-center text-lg font-bold tracking-widest text-white focus:outline-none focus:border-yellow-400">
+                    </div>
+                    <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm uppercase tracking-wider transition">
+                        Desbloquear Votação
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tela de FIM -->
+            <div id="screen-fim" class="hidden absolute inset-0 bg-[#eee8d5] flex flex-col items-center justify-center text-center p-6 z-10">
+                <h1 class="text-6xl sm:text-9xl font-black text-slate-800 tracking-widest animate-pulse">F I M</h1>
+                <p class="text-xs sm:text-sm text-slate-600 mt-4 font-bold">VOTO GRAVADO COM SUCESSO!</p>
+                <div class="mt-4 text-xs text-slate-500">Aguarde a liberação para o próximo voto...</div>
+            </div>
+
+        </div>
+
+        <!-- TECLADO NUMÉRICO (DIREITA) -->
+        <div class="bg-[#1e222b] p-4 sm:p-6 rounded-xl flex flex-col justify-between shadow-inner w-full lg:w-[380px]">
+            <!-- Topo do Teclado -->
+            <div class="flex items-center justify-center gap-2 mb-3 text-yellow-400 border-b border-slate-700 pb-2">
+                <i class="fa-solid fa-star text-xs"></i>
+                <span class="font-extrabold tracking-widest text-xs sm:text-sm text-white uppercase">GRÊMIO ESTUDANTIL</span>
+            </div>
+
+            <!-- Teclas Numéricas -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                <button onclick="pressNum('1')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">1</button>
+                <button onclick="pressNum('2')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">2</button>
+                <button onclick="pressNum('3')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">3</button>
+                <button onclick="pressNum('4')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">4</button>
+                <button onclick="pressNum('5')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">5</button>
+                <button onclick="pressNum('6')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">6</button>
+                <button onclick="pressNum('7')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">7</button>
+                <button onclick="pressNum('8')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">8</button>
+                <button onclick="pressNum('9')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">9</button>
+                <div class="col-span-1"></div>
+                <button onclick="pressNum('0')" class="btn-tecla h-12 sm:h-14 rounded-lg text-white text-xl sm:text-2xl font-bold flex items-center justify-center active:scale-95">0</button>
+                <div class="col-span-1"></div>
+            </div>
+
+            <!-- Teclas de Ação Superior -->
+            <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700">
+                <button onclick="pressBranco()" class="btn-branco h-11 sm:h-12 rounded font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center">BRANCO</button>
+                <button onclick="pressCorrige()" class="btn-corrige h-11 sm:h-12 rounded font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center">CORRIGE</button>
+                <button onclick="pressConfirma()" class="btn-confirma h-11 sm:h-12 rounded font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-center">CONFIRMA</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL DE ADMINISTRAÇÃO E RESULTADOS -->
+    <div id="modal-admin" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-2 sm:p-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col text-white shadow-2xl overflow-hidden">
+            
+            <!-- Cabeçalho Modal -->
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <h3 class="text-base sm:text-lg font-bold text-yellow-400 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders"></i> Painel de Gestão da Urna Eletrônica
+                </h3>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white text-xl p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Abas Admin -->
+            <div class="flex border-b border-slate-800 bg-slate-900 px-4 gap-4 text-xs sm:text-sm font-semibold overflow-x-auto">
+                <button id="tab-btn-cand" onclick="switchTab('cand')" class="py-3 text-yellow-400 border-b-2 border-yellow-400 whitespace-nowrap">Gerenciar Candidatos</button>
+                <button id="tab-btn-config" onclick="switchTab('config')" class="py-3 text-slate-400 hover:text-white whitespace-nowrap">Segurança / Senha</button>
+                <button id="tab-btn-res" onclick="switchTab('res')" class="py-3 text-slate-400 hover:text-white whitespace-nowrap">Apuração e PDF</button>
+            </div>
+
+            <!-- Conteúdo das Abas -->
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+                
+                <!-- ABA 1: GERENCIAR CANDIDATOS -->
+                <div id="tab-cand" class="space-y-6">
+                    <form id="form-candidate" onsubmit="saveCandidate(event)" class="bg-slate-800/60 p-4 rounded-lg border border-slate-700 grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                        <input type="hidden" id="cand-id">
+                        
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Número (2 dígitos)</label>
+                            <input type="text" id="input-num" maxlength="2" required pattern="[0-9]{2}" placeholder="10" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white font-bold text-center focus:border-yellow-400 outline-none">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Nome dos Candidatos</label>
+                            <input type="text" id="input-name" required placeholder="Ex: Lucas & Julia" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white font-medium focus:border-yellow-400 outline-none">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Nome da Chapa</label>
+                            <input type="text" id="input-chapa" required placeholder="Ex: Chapa 1 - Voz Ativa" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white font-medium focus:border-yellow-400 outline-none">
+                        </div>
+                        <div class="sm:col-span-4">
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Foto da Chapa</label>
+                            <input type="file" id="input-photo-file" accept="image/*" class="text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-yellow-500 file:text-slate-950 hover:file:bg-yellow-400 cursor-pointer w-full">
+                        </div>
+                        <div class="sm:col-span-12 flex flex-wrap justify-end gap-2 mt-2">
+                            <button type="button" id="btn-cancel-edit" onclick="cancelEditCandidate()" class="hidden bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded text-xs sm:text-sm transition">
+                                Cancelar edição
+                            </button>
+                            <button type="submit" id="btn-save-candidate" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold py-2 px-6 rounded text-xs sm:text-sm transition flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Salvar Candidato
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Lista de Candidatos Cadastrados -->
+                    <div class="bg-slate-800/40 rounded-lg border border-slate-700 overflow-hidden">
+                        <div class="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                            <h4 class="font-bold text-xs sm:text-sm text-slate-200">Chapas Cadastradas</h4>
+                            <span id="cand-count-badge" class="text-xs bg-yellow-500/20 text-yellow-400 font-bold px-2.5 py-1 rounded-full">0 Chapas</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs sm:text-sm">
+                                <thead class="bg-slate-950 text-slate-400 text-[11px] uppercase border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">Foto</th>
+                                        <th class="p-3">Nº</th>
+                                        <th class="p-3">Candidatos</th>
+                                        <th class="p-3">Chapa</th>
+                                        <th class="p-3 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="candidates-table-body" class="divide-y divide-slate-800 text-slate-200">
+                                    <!-- Inserido dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA DE CONFIGURAÇÕES E SEGURANÇA -->
+                <div id="tab-config" class="hidden space-y-6">
+                    <div class="bg-slate-800 p-5 rounded-lg border border-slate-700 space-y-4">
+                        <h4 class="font-bold text-white text-sm sm:text-base flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-yellow-400"></i> Bloqueio por Senha entre Votos
+                        </h4>
+                        <p class="text-xs text-slate-300">
+                            Evita que um mesmo aluno vote consecutivamente. Após cada voto, a urna fica bloqueada exigindo a senha da mesa receptora.
+                        </p>
+
+                        <div class="flex items-center gap-3 pt-2">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="check-enable-lock" onchange="toggleLockFeature(this.checked)" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
+                            </label>
+                            <span class="text-xs sm:text-sm font-bold text-slate-200">Exigir senha de liberação a cada voto</span>
+                        </div>
+
+                        <div id="pin-change-box" class="pt-4 border-t border-slate-700 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 mb-1">Senha Atual de Liberação</label>
+                                <input type="text" id="input-new-pin" maxlength="8" value="2620" class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white font-bold tracking-widest focus:border-yellow-400 outline-none">
+                            </div>
+                            <div>
+                                <button onclick="savePinConfig()" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold py-2 px-4 rounded text-xs sm:text-sm transition">
+                                    Salvar Nova Senha
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 3: APURAÇÃO DOS VOTOS E RELATÓRIO PDF -->
+                <div id="tab-res" class="hidden space-y-6">
+                    <div class="flex flex-wrap gap-3 justify-between items-center bg-slate-800 p-4 rounded-lg border border-slate-700">
+                        <div>
+                            <h4 class="font-bold text-white text-sm sm:text-base">Relatório de Votação do Turno</h4>
+                            <p class="text-xs text-slate-400">Gere o PDF do Boletim de Urna para transparência do processo.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="generatePDF()" class="bg-green-600 hover:bg-green-500 text-white font-bold text-xs px-4 py-2 rounded flex items-center gap-2">
+                                <i class="fa-solid fa-file-pdf text-base"></i> Imprimir Boletim (PDF)
+                            </button>
+                            <button onclick="askResetVotes()" class="bg-red-600/80 hover:bg-red-600 text-white font-bold text-xs px-3 py-2 rounded flex items-center gap-1">
+                                <i class="fa-solid fa-trash-can"></i> Zerar Votos
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ÁREA FORMATADA DO BOLETIM PARA PDF -->
+                    <div id="pdf-report" class="bg-white text-slate-900 p-6 sm:p-8 rounded shadow text-xs sm:text-sm">
+                        <!-- Cabeçalho Oficial do Relatório -->
+                        <div class="border-b-2 border-slate-900 pb-4 mb-4 text-center">
+                            <h2 class="font-extrabold text-sm sm:text-lg uppercase">Escola Deputado Gregório Bezerra</h2>
+                            <h3 class="font-bold text-xs sm:text-sm uppercase text-slate-700">BOLETIM DE URNA - ELEIÇÃO DO GRÊMIO ESTUDANTIL</h3>
+                            <p class="text-[11px] text-slate-500 mt-1" id="pdf-date-time"></p>
+                        </div>
+
+                        <!-- Resumo dos Números Totais -->
+                        <div class="grid grid-cols-3 gap-2 text-center mb-6 bg-slate-100 p-3 rounded border border-slate-300">
+                            <div>
+                                <p class="text-[10px] sm:text-xs text-slate-500 font-bold uppercase">Total de Eleitores</p>
+                                <p id="total-votos-num" class="text-lg sm:text-xl font-black text-slate-800">0</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] sm:text-xs text-slate-500 font-bold uppercase">Votos Válidos</p>
+                                <p id="validos-votos-num" class="text-lg sm:text-xl font-black text-green-700">0</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] sm:text-xs text-slate-500 font-bold uppercase">Brancos / Nulos</p>
+                                <p id="bn-votos-num" class="text-lg sm:text-xl font-black text-amber-700">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Tabela Detalhada dos Resultados -->
+                        <h4 class="font-bold text-slate-800 mb-2 border-b pb-1 uppercase text-xs sm:text-sm">Resultado por Candidato / Chapa</h4>
+                        <table class="w-full text-left mb-6 border-collapse text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b-2 border-slate-300 text-slate-600">
+                                    <th class="py-2">Nº</th>
+                                    <th class="py-2">Candidato / Chapa</th>
+                                    <th class="py-2 text-center">Votos</th>
+                                    <th class="py-2 text-right">Porcentagem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdf-results-tbody" class="divide-y divide-slate-200">
+                                <!-- Preenchido dinâmico -->
+                            </tbody>
+                        </table>
+
+                        <div class="border-t border-slate-300 pt-8 mt-12 grid grid-cols-2 gap-8 text-center text-[11px] sm:text-xs">
+                            <div>
+                                <div class="border-b border-slate-400 mb-1 w-3/4 mx-auto"></div>
+                                <p class="font-bold">Comissão Eleitoral Estudantil</p>
+                            </div>
+                            <div>
+                                <div class="border-b border-slate-400 mb-1 w-3/4 mx-auto"></div>
+                                <p class="font-bold">Direção Escolar</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CUSTOMIZADO DE CONFIRMAÇÃO E AVISOS -->
+    <div id="modal-confirm" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[900000] hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-6 text-white text-center shadow-2xl">
+            <div id="modal-confirm-icon" class="text-3xl text-yellow-400 mb-3">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="modal-confirm-title" class="text-lg font-bold mb-2">Confirmação</h3>
+            <p id="modal-confirm-msg" class="text-sm text-slate-300 mb-6">Tem certeza que deseja realizar esta ação?</p>
+            <div class="flex justify-center gap-3">
+                <button id="modal-btn-cancel" onclick="closeConfirmModal()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded text-xs font-bold transition">Cancelar</button>
+                <button id="modal-btn-ok" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-xs font-bold transition">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST / AVISO FLUTUANTE -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-yellow-500 text-slate-950 px-4 py-3 rounded-lg shadow-lg text-sm font-bold hidden z-[950000] flex items-center gap-2 transition-all">
+        <i id="toast-icon" class="fa-solid fa-circle-info"></i>
+        <span id="toast-msg">Mensagem</span>
+    </div>
+
+    <!-- JAVASCRIPT DO SISTEMA -->
+    <script>
+        // CONFIGURAÇÃO INICIAL E ESTADO
+        const NUM_DIGITS = 2;
+
+        // Candidatos fixos da eleição: os nomes são associados aos números 10, 45 e 99.
+        const candidatosFixos = [
+            { id: 1, num: '10', name: 'Nova Geração', chapa: 'Nova Geração', photo: '', votes: 0 },
+            { id: 2, num: '45', name: 'Elite', chapa: 'Elite', photo: '', votes: 0 },
+            { id: 3, num: '99', name: 'Todos por Um', chapa: 'Todos por Um', photo: '', votes: 0 }
+        ];
+
+        // Atualiza também os dados antigos salvos no navegador (localStorage).
+        function carregarCandidatos() {
+            const salvos = JSON.parse(localStorage.getItem('gregorio_candidates'));
+            if (!Array.isArray(salvos) || salvos.length === 0) {
+                localStorage.setItem('gregorio_candidates', JSON.stringify(candidatosFixos));
+                return candidatosFixos.map(c => ({ ...c }));
+            }
+
+            // Remove o candidato padrão antigo de número 20, se ainda estiver cadastrado.
+            let lista = salvos.filter(c => !(c.num === '20' && c.name === 'Gabriel & Amanda'));
+
+            candidatosFixos.forEach(fixo => {
+                const existente = lista.find(c => String(c.num) === fixo.num);
+                // Mantém os dados que o administrador já editou, incluindo fotos.
+                // Apenas adiciona os candidatos fixos que ainda não existem.
+                if (!existente) lista.push({ ...fixo });
+            });
+
+            localStorage.setItem('gregorio_candidates', JSON.stringify(lista));
+            return lista;
+        }
+
+        let candidates = carregarCandidatos();
+        
+        let votes = JSON.parse(localStorage.getItem('gregorio_votes')) || {
+            branco: 0,
+            nulo: 0,
+            candidatos: {}
+        };
+
+        // Configuração de Senha de Bloqueio
+        let lockConfig = JSON.parse(localStorage.getItem('gregorio_lock_config')) || {
+            enabled: true,
+            pin: "2620"
+        };
+
+        let currentDigits = "";
+        let isBranco = false;
+        let isFinished = false;
+        let isLocked = false;
+        let pendingAction = null;
+
+        // FUNÇÃO DE TOAST / NOTIFICAÇÃO CUSTOMIZADA
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = msg;
+            if (isError) {
+                toast.className = "fixed bottom-5 right-5 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-bold z-[950000] flex items-center gap-2 transition-all";
+                toastIcon.className = "fa-solid fa-triangle-exclamation";
+            } else {
+                toast.className = "fixed bottom-5 right-5 bg-yellow-500 text-slate-950 px-4 py-3 rounded-lg shadow-lg text-sm font-bold z-[950000] flex items-center gap-2 transition-all";
+                toastIcon.className = "fa-solid fa-circle-check";
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // MODAL DE CONFIRMAÇÃO CUSTOMIZADO
+        function openConfirmModal(title, msg, onConfirm, isDanger = true) {
+            document.getElementById('modal-confirm-title').innerText = title;
+            document.getElementById('modal-confirm-msg').innerText = msg;
+            
+            const btnOk = document.getElementById('modal-btn-ok');
+            if (isDanger) {
+                btnOk.className = "bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-xs font-bold transition text-white";
+            } else {
+                btnOk.className = "bg-green-600 hover:bg-green-500 px-4 py-2 rounded text-xs font-bold transition text-white";
+            }
+
+            pendingAction = onConfirm;
+            btnOk.onclick = () => {
+                if (pendingAction) pendingAction();
+                closeConfirmModal();
+            };
+
+            document.getElementById('modal-confirm').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('modal-confirm').classList.add('hidden');
+            pendingAction = null;
+        }
+
+        // SISTEMA DE ÁUDIO (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playBeep() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1050, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.08);
+        }
+
+        function playEndSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            
+            const createTone = (freq, start, duration) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + start);
+                gain.gain.setValueAtTime(0.15, now + start);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + start);
+                osc.stop(now + start + duration);
+            };
+
+            createTone(523.25, 0, 0.15);     // C5
+            createTone(659.25, 0.15, 0.15);  // E5
+            createTone(783.99, 0.30, 0.4);   // G5
+        }
+
+        // INICIALIZAÇÃO DA INTERFACE DA URNA
+        function initScreen() {
+            currentDigits = "";
+            isBranco = false;
+            isFinished = false;
+
+            document.getElementById('screen-fim').classList.add('hidden');
+            
+            if (isLocked && lockConfig.enabled) {
+                document.getElementById('screen-voting').classList.add('hidden');
+                document.getElementById('screen-blocked').classList.remove('hidden');
+            } else {
+                document.getElementById('screen-blocked').classList.add('hidden');
+                document.getElementById('screen-voting').classList.remove('hidden');
+            }
+
+            document.getElementById('msg-branco').classList.add('hidden');
+            document.getElementById('msg-nulo').classList.add('hidden');
+            document.getElementById('candidate-info').classList.add('hidden');
+
+            renderDigitBoxes();
+        }
+
+        function unlockUrna(e) {
+            if (e) e.preventDefault();
+            const pinInput = document.getElementById('input-unlock-pin');
+            if (pinInput.value.trim() === lockConfig.pin) {
+                isLocked = false;
+                pinInput.value = "";
+                showToast("Urna liberada para o próximo eleitor!");
+                initScreen();
+            } else {
+                showToast("Senha incorreta!", true);
+                pinInput.value = "";
+                pinInput.focus();
+            }
+        }
+
+        function renderDigitBoxes() {
+            const container = document.getElementById('digits-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < NUM_DIGITS; i++) {
+                const box = document.createElement('div');
+                box.className = 'digit-box';
+                
+                if (i < currentDigits.length) {
+                    box.innerText = currentDigits[i];
+                } else if (i === currentDigits.length && !isBranco) {
+                    box.classList.add('active');
+                }
+
+                if (isBranco) {
+                    box.classList.remove('active');
+                }
+
+                container.appendChild(box);
+            }
+
+            checkCandidate();
+        }
+
+        function checkCandidate() {
+            const infoDiv = document.getElementById('candidate-info');
+            const msgNulo = document.getElementById('msg-nulo');
+            const msgBranco = document.getElementById('msg-branco');
+            const photoImg = document.getElementById('cand-photo');
+            const photoEmoji = document.getElementById('cand-emoji');
+
+            infoDiv.classList.add('hidden');
+            msgNulo.classList.add('hidden');
+            msgBranco.classList.add('hidden');
+
+            if (isBranco) {
+                msgBranco.classList.remove('hidden');
+                return;
+            }
+
+            if (currentDigits.length === NUM_DIGITS) {
+                const candidate = candidates.find(c => c.num === currentDigits);
+                if (candidate) {
+                    document.getElementById('cand-name').innerText = candidate.name;
+                    document.getElementById('cand-chapa').innerText = candidate.chapa;
+                    
+                    if (candidate.photo) {
+                        photoImg.src = candidate.photo;
+                        photoImg.classList.remove('hidden');
+                        photoEmoji.classList.add('hidden');
+                    } else {
+                        photoImg.classList.add('hidden');
+                        photoEmoji.classList.remove('hidden');
+                    }
+
+                    infoDiv.classList.remove('hidden');
+                } else {
+                    msgNulo.classList.remove('hidden');
+                }
+            }
+        }
+
+        // AÇÕES DO TECLADO
+        function pressNum(num) {
+            if (isFinished || isLocked || isBranco) return;
+            if (currentDigits.length < NUM_DIGITS) {
+                playBeep();
+                currentDigits += num;
+                renderDigitBoxes();
+            }
+        }
+
+        function pressBranco() {
+            if (isFinished || isLocked) return;
+            playBeep();
+            currentDigits = "";
+            isBranco = true;
+            renderDigitBoxes();
+        }
+
+        function pressCorrige() {
+            if (isFinished || isLocked) return;
+            playBeep();
+            initScreen();
+        }
+
+        function pressConfirma() {
+            if (isFinished || isLocked) return;
+
+            if (currentDigits.length === NUM_DIGITS || isBranco) {
+                playEndSound();
+
+                if (isBranco) {
+                    votes.branco = (votes.branco || 0) + 1;
+                } else {
+                    const candidate = candidates.find(c => c.num === currentDigits);
+                    if (candidate) {
+                        votes.candidatos[candidate.id] = (votes.candidatos[candidate.id] || 0) + 1;
+                    } else {
+                        votes.nulo = (votes.nulo || 0) + 1;
+                    }
+                }
+
+                localStorage.setItem('gregorio_votes', JSON.stringify(votes));
+
+                isFinished = true;
+                if (lockConfig.enabled) {
+                    isLocked = true;
+                }
+
+                document.getElementById('screen-voting').classList.add('hidden');
+                document.getElementById('screen-fim').classList.remove('hidden');
+
+                setTimeout(() => {
+                    initScreen();
+                }, 2500);
+            }
+        }
+
+        // SUPORTE AO TECLADO FÍSICO
+        window.addEventListener('keydown', (e) => {
+            if (!document.getElementById('modal-admin').classList.contains('hidden')) return;
+            if (!document.getElementById('modal-confirm').classList.contains('hidden')) return;
+
+            if (isLocked) return;
+
+            if (e.key >= '0' && e.key <= '9') {
+                pressNum(e.key);
+            } else if (e.key === 'Enter') {
+                pressConfirma();
+            } else if (e.key === 'Backspace' || e.key === 'Escape') {
+                pressCorrige();
+            }
+        });
+
+        // GESTÃO DO MODAL DE ADMINISTRAÇÃO
+        function openAdminModal() {
+            renderAdminCandidates();
+            renderResults();
+            syncConfigUI();
+            document.getElementById('modal-admin').classList.remove('hidden');
+        }
+
+        function closeAdminModal() {
+            document.getElementById('modal-admin').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            const btnCand = document.getElementById('tab-btn-cand');
+            const btnConfig = document.getElementById('tab-btn-config');
+            const btnRes = document.getElementById('tab-btn-res');
+            
+            const tabCand = document.getElementById('tab-cand');
+            const tabConfig = document.getElementById('tab-config');
+            const tabRes = document.getElementById('tab-res');
+
+            [btnCand, btnConfig, btnRes].forEach(b => b.className = "py-3 text-slate-400 hover:text-white font-semibold whitespace-nowrap");
+            [tabCand, tabConfig, tabRes].forEach(t => t.classList.add('hidden'));
+
+            if (tab === 'cand') {
+                tabCand.classList.remove('hidden');
+                btnCand.className = "py-3 text-yellow-400 border-b-2 border-yellow-400 font-bold whitespace-nowrap";
+            } else if (tab === 'config') {
+                tabConfig.classList.remove('hidden');
+                btnConfig.className = "py-3 text-yellow-400 border-b-2 border-yellow-400 font-bold whitespace-nowrap";
+            } else {
+                tabRes.classList.remove('hidden');
+                btnRes.className = "py-3 text-yellow-400 border-b-2 border-yellow-400 font-bold whitespace-nowrap";
+                renderResults();
+            }
+        }
+
+        function syncConfigUI() {
+            document.getElementById('check-enable-lock').checked = lockConfig.enabled;
+            document.getElementById('input-new-pin').value = lockConfig.pin;
+        }
+
+        function toggleLockFeature(enabled) {
+            lockConfig.enabled = enabled;
+            localStorage.setItem('gregorio_lock_config', JSON.stringify(lockConfig));
+            showToast(enabled ? "Bloqueio por senha ativado!" : "Bloqueio por senha desativado!");
+            initScreen();
+        }
+
+        function savePinConfig() {
+            const pinVal = document.getElementById('input-new-pin').value.trim();
+            if (!pinVal) {
+                showToast("A senha não pode ser vazia!", true);
+                return;
+            }
+            lockConfig.pin = pinVal;
+            localStorage.setItem('gregorio_lock_config', JSON.stringify(lockConfig));
+            showToast("Nova senha salva!");
+        }
+
+        // CADASTRO DE CANDIDATOS
+        function renderAdminCandidates() {
+            const tbody = document.getElementById('candidates-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const badge = document.getElementById('cand-count-badge');
+            if (badge) {
+                badge.innerText = `${candidates.length} Chapas Registradas`;
+            }
+
+            if (candidates.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Nenhum candidato cadastrado.</td></tr>`;
+                return;
+            }
+
+            candidates.forEach(c => {
+                const tr = document.createElement('tr');
+                const photoMarkup = c.photo 
+                    ? `<img src="${c.photo}" class="w-8 h-8 object-cover rounded-full border border-slate-600">`
+                    : `<div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm">👤</div>`;
+
+                tr.innerHTML = `
+                    <td class="p-3">${photoMarkup}</td>
+                    <td class="p-3 font-bold text-yellow-400">${c.num}</td>
+                    <td class="p-3 font-medium">${c.name}</td>
+                    <td class="p-3 text-slate-400">${c.chapa}</td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <button onclick="editCandidate(${c.id})" class="bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 p-2 rounded transition mr-1" title="Editar candidato e adicionar/trocar foto" aria-label="Editar candidato">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="askDeleteCandidate(${c.id})" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 p-2 rounded transition" title="Excluir Chapa">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function saveCandidate(e) {
+            e.preventDefault();
+            const idValue = document.getElementById('cand-id').value;
+            const num = document.getElementById('input-num').value.trim();
+            const name = document.getElementById('input-name').value.trim();
+            const chapa = document.getElementById('input-chapa').value.trim();
+            const photoFileInput = document.getElementById('input-photo-file');
+            const editingId = idValue ? Number(idValue) : null;
+
+            if (candidates.some(c => c.num === num && c.id !== editingId)) {
+                showToast('Já existe um candidato com este número!', true);
+                return;
+            }
+
+            let photoBase64 = '';
+            if (photoFileInput.files && photoFileInput.files[0]) {
+                const file = photoFileInput.files[0];
+                photoBase64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => resolve(ev.target.result);
+                    reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+                    reader.readAsDataURL(file);
+                }).catch(() => {
+                    showToast('Não foi possível carregar a foto. Tente outra imagem.', true);
+                    return null;
+                });
+                if (photoBase64 === null) return;
+            }
+
+            if (editingId !== null) {
+                const index = candidates.findIndex(c => c.id === editingId);
+                if (index === -1) {
+                    showToast('Candidato não encontrado.', true);
+                    cancelEditCandidate();
+                    return;
+                }
+                const atual = candidates[index];
+                candidates[index] = {
+                    ...atual,
+                    num,
+                    name,
+                    chapa,
+                    // Se nenhuma nova foto for selecionada, mantém a foto atual.
+                    photo: photoBase64 || atual.photo || ''
+                };
+                localStorage.setItem('gregorio_candidates', JSON.stringify(candidates));
+                document.getElementById('form-candidate').reset();
+                document.getElementById('cand-id').value = '';
+                cancelEditCandidate();
+                renderAdminCandidates();
+                initScreen();
+                showToast('Candidato atualizado com sucesso!');
+                return;
+            }
+
+            const newCand = {
+                id: Date.now(),
+                num,
+                name,
+                chapa,
+                photo: photoBase64 || '',
+                votes: 0
+            };
+
+            candidates.push(newCand);
+            localStorage.setItem('gregorio_candidates', JSON.stringify(candidates));
+            document.getElementById('form-candidate').reset();
+            renderAdminCandidates();
+            initScreen();
+            showToast('Candidato cadastrado com sucesso!');
+        }
+
+        function editCandidate(id) {
+            const cand = candidates.find(c => c.id === id);
+            if (!cand) {
+                showToast('Candidato não encontrado.', true);
+                return;
+            }
+
+            document.getElementById('cand-id').value = String(cand.id);
+            document.getElementById('input-num').value = cand.num;
+            document.getElementById('input-name').value = cand.name;
+            document.getElementById('input-chapa').value = cand.chapa;
+            document.getElementById('input-photo-file').value = '';
+            document.getElementById('btn-save-candidate').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Alterações';
+            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+            document.getElementById('form-candidate').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast('Edite os dados ou escolha uma nova foto.');
+        }
+
+        function cancelEditCandidate() {
+            const form = document.getElementById('form-candidate');
+            if (form) form.reset();
+            const idField = document.getElementById('cand-id');
+            if (idField) idField.value = '';
+            const saveButton = document.getElementById('btn-save-candidate');
+            if (saveButton) saveButton.innerHTML = '<i class="fa-solid fa-plus"></i> Salvar Candidato';
+            const cancelButton = document.getElementById('btn-cancel-edit');
+            if (cancelButton) cancelButton.classList.add('hidden');
+        }
+
+        function askDeleteCandidate(id) {
+            const cand = candidates.find(c => c.id === id);
+            const name = cand ? cand.name : 'esta chapa';
+            openConfirmModal(
+                'Excluir Chapa',
+                `Tem certeza que deseja excluir "${name}"?`,
+                () => deleteCandidate(id),
+                true
+            );
+        }
+
+        function deleteCandidate(id) {
+            candidates = candidates.filter(c => c.id !== id);
+            localStorage.setItem('gregorio_candidates', JSON.stringify(candidates));
+            renderAdminCandidates();
+            initScreen();
+            showToast('Chapa removida com sucesso!');
+        }
+
+        // RENDERIZAÇÃO DA APURAÇÃO E RELATÓRIO
+        function renderResults() {
+            let totalValidos = 0;
+            candidates.forEach(c => {
+                totalValidos += (votes.candidatos[c.id] || 0);
+            });
+
+            const totalBrancos = votes.branco || 0;
+            const totalNulos = votes.nulo || 0;
+            const totalGeral = totalValidos + totalBrancos + totalNulos;
+
+            document.getElementById('total-votos-num').innerText = totalGeral;
+            document.getElementById('validos-votos-num').innerText = totalValidos;
+            document.getElementById('bn-votos-num').innerText = totalBrancos + totalNulos;
+
+            const now = new Date();
+            document.getElementById('pdf-date-time').innerText = `Emissão em: ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
+
+            const tbody = document.getElementById('pdf-results-tbody');
+            tbody.innerHTML = '';
+
+            const sortedCandidates = [...candidates].sort((a,b) => (votes.candidatos[b.id]||0) - (votes.candidatos[a.id]||0));
+
+            sortedCandidates.forEach(c => {
+                const candVotes = votes.candidatos[c.id] || 0;
+                const pct = totalGeral > 0 ? ((candVotes / totalGeral) * 100).toFixed(1) : '0.0';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2 font-bold">${c.num}</td>
+                    <td class="py-2">
+                        <div class="font-bold">${c.name}</div>
+                        <div class="text-xs text-slate-500">${c.chapa}</div>
+                    </td>
+                    <td class="py-2 text-center font-bold">${candVotes}</td>
+                    <td class="py-2 text-right font-bold text-slate-700">${pct}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const pctBranco = totalGeral > 0 ? ((totalBrancos / totalGeral) * 100).toFixed(1) : '0.0';
+            const pctNulo = totalGeral > 0 ? ((totalNulos / totalGeral) * 100).toFixed(1) : '0.0';
+
+            tbody.innerHTML += `
+                <tr class="bg-slate-50">
+                    <td class="py-2 font-bold">--</td>
+                    <td class="py-2 font-bold text-slate-600">Votos em Branco</td>
+                    <td class="py-2 text-center font-bold">${totalBrancos}</td>
+                    <td class="py-2 text-right font-bold text-slate-600">${pctBranco}%</td>
+                </tr>
+                <tr class="bg-slate-50">
+                    <td class="py-2 font-bold">--</td>
+                    <td class="py-2 font-bold text-slate-600">Votos Nulos</td>
+                    <td class="py-2 text-center font-bold">${totalNulos}</td>
+                    <td class="py-2 text-right font-bold text-slate-600">${pctNulo}%</td>
+                </tr>
+            `;
+        }
+
+        // ZERAR VOTAÇÃO (ZERÉSIMA)
+        function askResetVotes() {
+            openConfirmModal(
+                'Zerar Votação',
+                'Atenção: Tem certeza que deseja ZERAR TODOS OS VOTOS gravados?',
+                () => resetVotesConfirm(),
+                true
+            );
+        }
+
+        function resetVotesConfirm() {
+            votes = { branco: 0, nulo: 0, candidatos: {} };
+            localStorage.setItem('gregorio_votes', JSON.stringify(votes));
+            renderResults();
+            showToast('Votação zerada com sucesso!');
+        }
+
+        // GERAR PDF
+        function generatePDF() {
+            const element = document.getElementById('pdf-report');
+            const opt = {
+                margin:       10,
+                filename:     `boletim_urna_gregorio_bezerra_${new Date().toISOString().slice(0,10)}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // TELA CHEIA ADAPTADA PARA GOOGLE SITES
+        let isPseudoFullscreen = false;
+
+        function toggleFullScreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const isNativeFS = !!(doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
+
+            if (isNativeFS || isPseudoFullscreen) {
+                if (isNativeFS) {
+                    const exitFS = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+                    if (exitFS) exitFS.call(doc).catch(() => {});
+                }
+                
+                if (isPseudoFullscreen) {
+                    disablePseudoFullscreen();
+                }
+
+                updateFullscreenUI(false);
+            } else {
+                // Tenta ativar a tela cheia nativa
+                const requestFS = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+
+                if (requestFS) {
+                    requestFS.call(docEl).then(() => {
+                        updateFullscreenUI(true);
+                    }).catch(() => {
+                        // Se o iFrame do Google Sites bloquear a tela cheia nativa, ativa o modo expansivo virtual
+                        enablePseudoFullscreen();
+                    });
+                } else {
+                    enablePseudoFullscreen();
+                }
+            }
+        }
+
+        function enablePseudoFullscreen() {
+            isPseudoFullscreen = true;
+            const urna = document.getElementById('urna-container');
+            urna.classList.add('pseudo-fullscreen');
+            updateFullscreenUI(true);
+            showToast("Modo Tela Cheia Expandido Ativado!");
+        }
+
+        function disablePseudoFullscreen() {
+            isPseudoFullscreen = false;
+            const urna = document.getElementById('urna-container');
+            urna.classList.remove('pseudo-fullscreen');
+            updateFullscreenUI(false);
+        }
+
+        function updateFullscreenUI(active) {
+            const icon = document.getElementById('fs-icon');
+            const text = document.getElementById('fs-text');
+            const btn = document.getElementById('btn-fullscreen');
+
+            if (active) {
+                icon.className = "fa-solid fa-compress text-yellow-400";
+                if (text) text.innerText = "Sair da Tela Cheia";
+                btn.classList.add("fs-floating-btn");
+            } else {
+                icon.className = "fa-solid fa-expand text-yellow-400";
+                if (text) text.innerText = "Tela Cheia";
+                btn.classList.remove("fs-floating-btn");
+            }
+        }
+
+        document.addEventListener('fullscreenchange', handleFSChange);
+        document.addEventListener('webkitfullscreenchange', handleFSChange);
+        document.addEventListener('mozfullscreenchange', handleFSChange);
+
+        function handleFSChange() {
+            const isNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+            if (!isNativeFS && !isPseudoFullscreen) {
+                updateFullscreenUI(false);
+            } else if (isNativeFS) {
+                updateFullscreenUI(true);
+            }
+        }
+
+        // INICIALIZAÇÃO
+        window.onload = function() {
+            initScreen();
+        };
+    </script>
+</body>
+</html>
